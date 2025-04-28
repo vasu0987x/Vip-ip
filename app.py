@@ -5,19 +5,19 @@ from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 
-# Settings
+# Bot Settings
 BOT_TOKEN = "8020708306:AAHmrEb8nkmBMzEEx_m88Nenyz5QgrQ85hA"
 ADMIN_ID = 6972264549
 LOG_CHANNEL = -1002522049841
 
 # Flask app
-flask_app = Flask(__name__)
+app = Flask(__name__)
 
-@flask_app.route('/')
+@app.route('/')
 def home():
     return "DarkIp Bot running! Health OK.", 200
 
-# Bot functions
+# Bot Handlers
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -46,22 +46,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer("Access Denied.")
         return
     await query.answer()
-    await query.edit_message_text(f"You selected: {query.data} (Coming soon!)")
+    await query.edit_message_text(f"You selected: {query.data} (Feature coming soon!)")
 
-async def run():
-    application = ApplicationBuilder().token(BOT_TOKEN).build()
-    application.add_handler(CommandHandler("start", start))
-    application.add_handler(CallbackQueryHandler(button_handler))
+async def run_bot():
+    bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
+    bot_app.add_handler(CommandHandler("start", start))
+    bot_app.add_handler(CallbackQueryHandler(button_handler))
 
-    # Start flask app in background
-    loop = asyncio.get_event_loop()
-    loop.create_task(asyncio.to_thread(flask_app.run, host="0.0.0.0", port=8080))
+    await bot_app.start()
+    print("DarkIp Bot started polling Telegram!")
+    await bot_app.updater.start_polling()
+    await bot_app.idle()
 
-    # Start telegram polling
-    await application.start()
-    await application.updater.start_polling()
-    await application.idle()
+def run():
+    # Start Flask server
+    threading.Thread(target=lambda: app.run(host="0.0.0.0", port=8080)).start()
+    # Start Telegram Bot
+    asyncio.run(run_bot())
 
 if __name__ == "__main__":
-    asyncio.run(run())
+    run()
     
