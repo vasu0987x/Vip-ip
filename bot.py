@@ -1,6 +1,8 @@
 import asyncio
 import logging
+import threading
 import os
+from flask import Flask
 from telegram import Update, InlineKeyboardButton, InlineKeyboardMarkup
 from telegram.ext import ApplicationBuilder, CommandHandler, CallbackQueryHandler, ContextTypes
 import requests
@@ -10,13 +12,14 @@ BOT_TOKEN = "8020708306:AAHmrEb8nkmBMzEEx_m88Nenyz5QgrQ85hA"
 ADMIN_ID = 6972264549  # Only this user can use the bot
 LOG_CHANNEL = -1002522049841  # Channel ID for logs
 
-# --- Logging Setup ---
-logging.basicConfig(
-    format='%(asctime)s - %(name)s - %(levelname)s - %(message)s',
-    level=logging.INFO
-)
+# --- Flask App ---
+flask_app = Flask(__name__)
 
-# --- Start Command ---
+@flask_app.route('/')
+def health():
+    return 'DarkIp Bot is Alive!', 200
+
+# --- Bot Handlers ---
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -39,7 +42,6 @@ async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
         reply_markup=reply_markup
     )
 
-# --- Button Handler ---
 async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     query = update.callback_query
     user_id = query.from_user.id
@@ -52,17 +54,17 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
     choice = query.data
 
     if choice == 'scan_network':
-        await query.edit_message_text("Starting network scan... (Phase 2 under development)")
+        await query.edit_message_text("Starting network scan... (Coming Soon!)")
     elif choice == 'scan_ports':
-        await query.edit_message_text("Starting port scan... (Phase 2 under development)")
+        await query.edit_message_text("Starting port scan... (Coming Soon!)")
     elif choice == 'service_detection':
-        await query.edit_message_text("Starting service detection... (Phase 2 under development)")
+        await query.edit_message_text("Starting service detection... (Coming Soon!)")
     elif choice == 'attack':
-        await query.edit_message_text("Preparing attack options... (Phase 2 under development)")
+        await query.edit_message_text("Preparing attack options... (Coming Soon!)")
     elif choice == 'auto_attack':
-        await query.edit_message_text("Auto Attack Mode activated... (Phase 2 under development)")
+        await query.edit_message_text("Auto Attack Mode activated... (Coming Soon!)")
     elif choice == 'report':
-        await query.edit_message_text("Fetching report... (Phase 2 under development)")
+        await query.edit_message_text("Fetching report... (Coming Soon!)")
     elif choice == 'help':
         await query.edit_message_text("""
 🌟 **DarkIp Bot Commands:**
@@ -76,17 +78,24 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
 ⚙️ Only authorized Admins can use the bot.
         """)
 
-# --- Main ---
-async def main():
+async def run_bot():
     app = ApplicationBuilder().token(BOT_TOKEN).build()
-
     app.add_handler(CommandHandler("start", start))
     app.add_handler(CallbackQueryHandler(button_handler))
 
     await app.start()
-    print("DarkIp Bot is running...")
+    print("DarkIp Bot Telegram polling started...")
     await app.updater.start_polling()
     await app.idle()
 
+def start_bot_loop():
+    asyncio.run(run_bot())
+
+# --- Main Start ---
 if __name__ == "__main__":
-    asyncio.run(main())
+    # Run Flask server in one thread
+    threading.Thread(target=lambda: flask_app.run(host="0.0.0.0", port=8080)).start()
+    
+    # Run Telegram bot in main thread
+    start_bot_loop()
+    
