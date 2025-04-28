@@ -11,9 +11,13 @@ ADMIN_ID = 6972264549
 LOG_CHANNEL = -1002522049841
 
 # Flask app
-app = Flask(__name__)
+flask_app = Flask(__name__)
 
-# Telegram Bot logic
+@flask_app.route('/')
+def home():
+    return "DarkIp Bot running! Health OK.", 200
+
+# Bot functions
 async def start(update: Update, context: ContextTypes.DEFAULT_TYPE):
     user_id = update.effective_user.id
     if user_id != ADMIN_ID:
@@ -42,29 +46,22 @@ async def button_handler(update: Update, context: ContextTypes.DEFAULT_TYPE):
         await query.answer("Access Denied.")
         return
     await query.answer()
-    choice = query.data
-    await query.edit_message_text(f"You selected: {choice}\nComing soon...")
+    await query.edit_message_text(f"You selected: {query.data} (Coming soon!)")
 
-async def run_bot():
-    bot_app = ApplicationBuilder().token(BOT_TOKEN).build()
-    bot_app.add_handler(CommandHandler("start", start))
-    bot_app.add_handler(CallbackQueryHandler(button_handler))
-    await bot_app.start()
-    await bot_app.updater.start_polling()
-    await bot_app.idle()
+async def run():
+    application = ApplicationBuilder().token(BOT_TOKEN).build()
+    application.add_handler(CommandHandler("start", start))
+    application.add_handler(CallbackQueryHandler(button_handler))
 
-def start_bot():
-    asyncio.run(run_bot())
+    # Start flask app in background
+    loop = asyncio.get_event_loop()
+    loop.create_task(asyncio.to_thread(flask_app.run, host="0.0.0.0", port=8080))
 
-# Routes
-@app.route('/')
-def home():
-    return "DarkIp Bot running! Health OK.", 200
+    # Start telegram polling
+    await application.start()
+    await application.updater.start_polling()
+    await application.idle()
 
-# Main
 if __name__ == "__main__":
-    # Start Telegram bot in another thread
-    threading.Thread(target=start_bot).start()
-    # Start Flask server for Koyeb health check
-    app.run(host="0.0.0.0", port=8080)
+    asyncio.run(run())
     
