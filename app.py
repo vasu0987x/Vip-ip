@@ -1,21 +1,20 @@
 import os
-import asyncio
-import socket
+import subprocess
 import datetime
 from flask import Flask, request, redirect, url_for, render_template_string, session, send_file
 
-# --- Flask Config ---
+# Flask setup
 app = Flask(__name__)
-app.secret_key = os.urandom(24)  # Random session key
+app.secret_key = os.urandom(24)
 
-# --- Settings ---
+# Settings
 ADMIN_PASSWORD = "2412"
 
-# --- HTML Templates (Direct inside app.py) ---
+# HTML Templates
 login_page = '''
 <!doctype html>
 <title>DarkIp Admin - Login</title>
-<h2 style="text-align:center; margin-top:20px;">DarkIp Admin Panel</h2>
+<h2 style="text-align:center; margin-top:20px;">DarkIp Admin Panel (RustScan Powered)</h2>
 <form method="POST" style="text-align:center; margin-top:40px;">
     <input type="password" name="password" placeholder="Enter Password" style="padding:10px; width:200px;"><br><br>
     <input type="submit" value="Login" style="padding:10px 20px;">
@@ -25,10 +24,10 @@ login_page = '''
 dashboard_page = '''
 <!doctype html>
 <title>DarkIp Admin - Dashboard</title>
-<h2 style="text-align:center; margin-top:20px;">Welcome to DarkIp Admin</h2>
+<h2 style="text-align:center; margin-top:20px;">Welcome to DarkIp Admin Panel</h2>
 <form method="POST" action="/scan" style="text-align:center; margin-top:40px;">
-    <input type="text" name="target" placeholder="Enter IP or CIDR" style="padding:10px; width:300px;"><br><br>
-    <input type="submit" value="Start Scan" style="padding:10px 20px;">
+    <input type="text" name="target" placeholder="Enter IP or CIDR Range" style="padding:10px; width:300px;"><br><br>
+    <input type="submit" value="Start RustScan" style="padding:10px 20px;">
 </form>
 <br><br>
 <div style="text-align:center;">
@@ -39,7 +38,7 @@ dashboard_page = '''
 result_page = '''
 <!doctype html>
 <title>DarkIp Admin - Scan Result</title>
-<h2 style="text-align:center; margin-top:20px;">Scan Completed!</h2>
+<h2 style="text-align:center; margin-top:20px;">RustScan Result</h2>
 <div style="margin:30px;">
 <pre>
 {{ result }}
@@ -50,7 +49,7 @@ result_page = '''
 </div>
 '''
 
-# --- Routes ---
+# Routes
 @app.route('/', methods=['GET', 'POST'])
 def login():
     if request.method == 'POST':
@@ -77,7 +76,7 @@ def scan():
     if not target:
         return "Please enter a valid IP or CIDR Range."
 
-    result = run_scan(target)
+    result = run_rustscan(target)
 
     # Save result
     with open('last_report.txt', 'w') as f:
@@ -91,30 +90,21 @@ def report():
         return redirect(url_for('login'))
     return send_file('last_report.txt', as_attachment=True)
 
-# --- Core Scan Function ---
-def run_scan(target):
-    result = f"Scan result for {target}:\n"
-    open_ports = []
-    common_ports = [80, 443, 554, 8000, 8080, 8443, 21, 22, 23, 53, 123]
-
-    for port in common_ports:
-        try:
-            sock = socket.socket()
-            sock.settimeout(1)
-            sock.connect((target, port))
-            open_ports.append(port)
-            sock.close()
-        except:
-            pass
-
-    if open_ports:
-        result += "Open ports: " + ", ".join([str(p) for p in open_ports]) + "\n"
-    else:
-        result += "No open ports detected.\n"
-
-    result += "Scanned: " + datetime.datetime.now().strftime("%a %b %d %H:%M:%S %Y")
+# Core RustScan Function
+def run_rustscan(target):
+    try:
+        output = subprocess.check_output(['rustscan', '-a', target, '--', '-sV'], stderr=subprocess.DEVNULL, timeout=120)
+        result = output.decode()
+    except subprocess.TimeoutExpired:
+        result = "Scan timed out!"
+    except Exception as e:
+        result = f"Error running RustScan: {str(e)}"
+    
+    now = datetime.datetime.now()
+    result = f"Scan Target: {target}\nTime: {now}\n\n{result}"
     return result
 
-# --- Run Server ---
+# Run server
 if __name__ == "__main__":
     app.run(host="0.0.0.0", port=8080)
+    
